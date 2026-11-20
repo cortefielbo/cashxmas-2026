@@ -1,5 +1,5 @@
 // CashXMAS 2026 · arranque, sesión, inicio y navegación
-import { h, mount, icon, guilloche, cfg, fmtDate, bs, alertBox, busy } from './ui.js';
+import { h, mount, icon, fmtDate, bs, alertBox, busy, logo, brandsBand, voucherSrc } from './ui.js';
 import { sb, rpc, signIn, signOut, configured, NetworkError, SessionError } from './api.js';
 import { emissionPage } from './emit.js';
 import { redeemPage } from './redeem.js';
@@ -24,7 +24,7 @@ function renderChrome() {
     ? h('div', { class: 'who' }, h('strong', null, me.store.name), h('span', null, [me.store.city, me.store.location].filter(Boolean).join(', ')))
     : h('div', { class: 'who' }, h('strong', null, 'Marketing'), h('span', null, 'Todas las tiendas'));
   bar.replaceChildren(
-    h('a', { class: 'brand', href: '#/' }, 'CashXMAS'),
+    h('a', { class: 'brand', href: '#/', 'aria-label': 'Inicio' }, logo('cream')),
     who,
     h('button', { type: 'button', onclick: async () => { await signOut(); state.me = null; location.hash = '#/'; boot(); } }, 'Salir')
   );
@@ -37,8 +37,8 @@ function loginPage(message) {
   const err = h('p', { class: 'err', role: 'alert' }, message || '');
   const user = h('input', { class: 'input', id: 'u', name: 'username', autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false', required: true });
   const pass = h('input', { class: 'input', id: 'p', name: 'password', type: 'password', autocomplete: 'current-password', required: true });
-  const btn = h('button', { class: 'btn primary block', type: 'submit' }, 'Entrar');
-  const form = h('form', { novalidate: true, onsubmit: async (ev) => {
+  const btn = h('button', { class: 'btn danger block', type: 'submit' }, 'Entrar');
+  const form = h('form', { class: 'ticket', novalidate: true, onsubmit: async (ev) => {
       ev.preventDefault();
       err.textContent = '';
       if (!user.value.trim() || !pass.value) { err.textContent = 'Escribe tu usuario y contraseña.'; return; }
@@ -53,58 +53,63 @@ function loginPage(message) {
         if (!(e instanceof NetworkError)) await signOut();
       }
     } },
-    h('h1', null, 'Entrar al portal'),
-    h('p', { class: 'lead' }, 'Usa el usuario de tu tienda.'),
+    h('img', { class: 'seal', src: 'assets/img/sello-crema.png', alt: '', width: 76, height: 76 }),
+    h('h2', null, 'Portal de vales'),
+    h('p', { class: 'lead' }, 'Entra con el usuario de tu tienda.'),
     h('div', { class: 'field' }, h('label', { for: 'u' }, 'Usuario'), user, h('span', { class: 'hint' }, 'Ejemplo: cortefiel-lb')),
     h('div', { class: 'field', style: 'margin-top:14px' }, h('label', { for: 'p' }, 'Contraseña'), pass),
-    h('div', { style: 'margin-top:14px' }, err),
+    h('div', { style: 'margin-top:12px' }, err),
     h('div', { style: 'margin-top:8px' }, btn)
   );
-  mount(h('div', { class: 'login' }, h('div', { class: 'login-card' }, heroNote(true), form)));
+  mount(h('div', { class: 'login' },
+    h('div', { class: 'center' }, h('div', { class: 'login-col' },
+      h('div', { class: 'kicker' }, 'Navidad 2026'),
+      h('h1', { class: 'sr' }, 'CashXMAS 2026'),
+      logo('cream'),
+      h('p', { class: 'tagline' }, 'La Navidad que te recompensa'),
+      form)),
+    brandsBand()));
   user.focus();
-}
-
-function heroNote(compact = false) {
-  if (cfg.KV_IMAGE) {
-    return h('div', { class: 'note kv' }, h('img', { src: cfg.KV_IMAGE, alt: 'CashXMAS 2026, la Navidad que te recompensa' }));
-  }
-  return h('div', { class: 'note' }, guilloche(1), h('div', { class: 'frame' }),
-    h('span', { class: 'serial' }, 'Nº 000001'),
-    h('div', { class: 'note-inner' },
-      h('p', { class: 'word' }, 'Cash', h('br'), h('span', { class: 'x' }, 'XMAS')),
-      h('div', { class: 'year' }, '2026'),
-      compact ? null : h('p', { class: 'tag' }, 'La Navidad que te recompensa.'),
-      compact ? null : h('div', { class: 'values', 'aria-label': 'Valores de vale' }, h('span', null, 'Bs 50'), h('span', null, 'Bs 100'), h('span', null, 'Bs 150'))
-    ));
 }
 
 // ------------------------------------------------------------------ inicio
 function homePage() {
   const { campaign, denominations, user } = state.me;
   const minEmit = Math.min(...denominations.map(d => Number(d.emit_min)));
-  const page = h('div', { class: 'page home-page' },
-    h('h1', { class: 'sr' }, 'CashXMAS 2026'),
-    h('div', { class: 'home' },
-      heroNote(),
+  const range = (d) => d.emit_max ? `${bs(d.emit_min)} a ${bs(Number(d.emit_max) - 1)}` : `${bs(d.emit_min)} o más`;
+  mount(h('div', null,
+    h('section', { class: 'hero stripes' },
+      h('div', { class: 'brandblock' },
+        h('div', { class: 'kicker' }, 'Navidad 2026'),
+        h('h1', { class: 'sr' }, 'CashXMAS 2026'),
+        logo('cream'),
+        h('p', { class: 'tagline' }, 'La Navidad que te recompensa')),
+      h('div', { class: 'ticket', role: 'img', 'aria-label': 'Te regalamos Bs 50, Bs 100 o Bs 150 en vales de descuento' },
+        h('div', { class: 't1' }, 'TE REGALAMOS'),
+        h('div', { class: 'vals' }, denominations.map(d => h('span', null, h('i', null, 'Bs.'), String(d.amount)))),
+        h('div', { class: 't2' }, 'EN VALES DE DESCUENTO'))),
+    h('div', { class: 'home-body' },
       h('nav', { class: 'actions', 'aria-label': 'Operaciones' },
         h('a', { class: 'action emit', href: '#/emitir' },
           h('div', null, h('div', { class: 't' }, 'REGISTRO / EMISIÓN DE VALE'),
             h('div', { class: 'd' }, `El cliente compró ${bs(minEmit)} o más y recibe su vale.`)),
-          icon('ticket', 44)),
+          icon('ticket', 46)),
         h('a', { class: 'action redeem', href: '#/canjear' },
           h('div', null, h('div', { class: 't' }, 'CANJE DE VALE'),
             h('div', { class: 'd' }, `El cliente usa su vale del ${fmtDate(campaign.redeem_from)} al ${fmtDate(campaign.redeem_to)}.`)),
-          icon('stampic', 44))
-      ),
-      h('div', { class: 'rules' },
-        h('strong', null, 'Recuerda: '),
-        'un vale por compra, no se acumula y no se combina con otros descuentos.',
-        h('ul', null, denominations.map(d => h('li', null, `Vale de ${bs(d.amount)}: códigos ${d.code_from} a ${d.code_to}. Se canjea en compras desde ${bs(d.redeem_min)}.`)))
-      ),
-      user.role === 'admin' ? h('a', { class: 'admin-link', href: '#/panel' }, 'Panel de Marketing') : null
-    )
-  );
-  mount(page);
+          icon('stampic', 46))),
+      h('section', null,
+        h('h2', { class: 'section-title' }, 'Vales de la campaña'),
+        h('p', { class: 'section-sub' }, 'Entrega el vale del color que corresponde a la compra.'),
+        h('div', { class: 'vales' }, denominations.map(d => h('div', { class: 'vale-card' },
+          h('img', { src: voucherSrc(d.amount, true), alt: `Vale de Bs ${d.amount}`, width: 480, height: 240, loading: 'lazy' }),
+          h('dl', null,
+            h('dt', null, 'Códigos'), h('dd', null, `${d.code_from} a ${d.code_to}`),
+            h('dt', null, 'Compra para recibirlo'), h('dd', null, range(d)),
+            h('dt', null, 'Compra para canjearlo'), h('dd', null, `desde ${bs(d.redeem_min)}`))))),
+        h('p', { class: 'rules-note' }, 'Un vale por compra. No se acumula y no se combina con otros descuentos. Una compra en la que se canjea un vale no genera un vale nuevo.')),
+      user.role === 'admin' ? h('a', { class: 'admin-link', href: '#/panel' }, 'Panel de Marketing') : null),
+    brandsBand()));
 }
 
 // ------------------------------------------------------------------ navegación

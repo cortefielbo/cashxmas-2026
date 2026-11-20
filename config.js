@@ -8,9 +8,9 @@ window.CASHXMAS_CONFIG = {
   LOGIN_DOMAIN: 'cashxmas.local',
   LOGIN_ALIASES: { marketing: 'marketingremotexbo@gmail.com' },
 
-  // Material gráfico oficial (opcional). Deja '' para usar el diseño provisional.
-  KV_IMAGE: '',                                    // ej. 'assets/img/kv.jpg'
-  VOUCHER_IMAGES: { 50: '', 100: '', 150: '' },    // ej. 'assets/img/vale-100.jpg'
+  // Imágenes de los vales (vienen incluidas: assets/img/vale-50.jpg, vale-100.jpg, vale-150.jpg).
+  // Solo cambia esto si se reemplaza el diseño impreso.
+  VOUCHER_IMAGES: { 50: '', 100: '', 150: '' },
 
   PRIVACY_NOTE: 'Los datos del cliente se usan solo para controlar la entrega y el canje de vales de esta campaña.'
 };

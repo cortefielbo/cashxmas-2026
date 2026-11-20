@@ -1,5 +1,5 @@
 // Módulo A · Registro y emisión de vales
-import { h, mount, backLink, bs, num, normCode, parseAmount, uuid, icon, alertBox, busy, facts, voucherCard, storePicker, storePath, cfg } from './ui.js';
+import { h, mount, backLink, bs, num, normCode, parseAmount, uuid, icon, alertBox, busy, facts, voucherCard, storePicker, storePath, cfg, voucherSrc, den } from './ui.js';
 import { rpc, NetworkError, SessionError } from './api.js';
 import { handleFatal } from './app.js';
 
@@ -30,18 +30,21 @@ export function emissionPage(state) {
   const fSeller = field('seller', 'Atendido por', inp({ autocapitalize: 'words', maxlength: 60, value: localStorage.getItem(SELLER_KEY) || '' }), 'Se recuerda en este equipo.', true);
 
   // ---------------------------------------------------------------- tramos
-  const tiers = h('div', { class: 'tiers', 'aria-live': 'polite' });
-  const tierMsg = h('div', { class: 'hint' });
+  const tiers = h('div', { class: 'tiers' });
+  const tierMsg = h('div', { class: 'tier-msg', 'aria-live': 'polite' });
   const renderTiers = () => {
     const amt = parseAmount(fAmount.input.value);
     const match = amt ? dens.find(d => amt >= Number(d.emit_min) && (d.emit_max === null || amt < Number(d.emit_max))) : null;
     s.den = match ? match.amount : null;
-    tiers.replaceChildren(...dens.map(d => h('div', { class: 'tier' + (s.den === d.amount ? ' on' : (s.den ? ' dim' : '')) },
+    tiers.replaceChildren(...dens.map(d => h('div', { class: 'tier' + (s.den === d.amount ? ' on' : (amt ? ' dim' : '')) },
+      h('img', { src: voucherSrc(d.amount, true), alt: '', width: 480, height: 240 }),
       h('b', null, bs(d.amount)),
       h('span', null, d.emit_max ? `${num(d.emit_min)} a ${num(Number(d.emit_max) - 1)}` : `${num(d.emit_min)} o más`))));
-    if (!amt) tierMsg.textContent = 'El vale que corresponde se calcula con el monto de la compra.';
-    else if (!match) tierMsg.textContent = `Esta compra no recibe vale: el mínimo es ${bs(Math.min(...dens.map(d => Number(d.emit_min))))}.`;
-    else tierMsg.textContent = `Corresponde un vale de ${bs(match.amount)}. Usa un vale del ${match.code_from} al ${match.code_to}.`;
+    tierMsg.classList.toggle('bad', !!amt && !match);
+    if (!amt) { tierMsg.textContent = ''; tierMsg.hidden = true; return; }
+    tierMsg.hidden = false;
+    if (!match) tierMsg.textContent = `Esta compra no recibe vale: el mínimo es ${bs(Math.min(...dens.map(d => Number(d.emit_min))))}.`;
+    else tierMsg.textContent = `Entrega un vale de ${bs(match.amount)}: códigos ${match.code_from} a ${match.code_to}.`;
   };
   fAmount.input.addEventListener('input', () => { renderTiers(); fAmount.err.textContent = ''; recheckCode(); });
 
@@ -74,7 +77,7 @@ export function emissionPage(state) {
       if (exactOnly) { suggest.replaceChildren(); evaluateExact(r.exact); return; }
       const opts = r.options || [];
       suggest.replaceChildren(...opts.slice(0, 6).map(o => h('li', null, h('button', { type: 'button', role: 'option', onclick: () => pick(o.code) },
-        h('span', { class: 'c' }, o.code), h('span', null, bs(o.denomination)), h('span', { class: 'badge DISPONIBLE' }, 'Disponible')))));
+        h('span', { class: 'c' }, o.code), den(o.denomination), h('span', { class: 'badge EMITIDO' }, 'Disponible')))));
       if (!opts.length) setCodeState('info', s.den ? `No hay vales de ${bs(s.den)} disponibles que contengan "${q}".` : `No hay vales disponibles que contengan "${q}".`);
       else setCodeState('', '');
     } catch (e) {
@@ -165,7 +168,7 @@ export function emissionPage(state) {
   // ---------------------------------------------------------------- pantalla
   const form = h('form', { novalidate: true, onsubmit: (e) => { e.preventDefault(); send(); } },
     h('fieldset', null, h('legend', null, 'Tienda de emisión'), picker.node, storeErr),
-    h('fieldset', null, h('legend', null, 'Compra'), h('div', { class: 'group' }, fAmount.node, h('div', { class: 'field' }, h('span', { class: 'label' }, 'Vale que corresponde'), tiers, tierMsg), fInvoice.node)),
+    h('fieldset', null, h('legend', null, 'Compra'), h('div', { class: 'group' }, fAmount.node, h('div', { class: 'field' }, h('span', { class: 'label' }, 'Vale que corresponde'), tiers, tierMsg, h('div', { class: 'hint' }, 'Se marca solo según el monto de la compra.')), fInvoice.node)),
     h('fieldset', null, h('legend', null, 'Vale físico'), h('div', { class: 'group' },
       h('div', { class: 'field' }, h('label', { for: 'code' }, 'Código impreso en el vale'), codeInput,
         h('div', { class: 'hint', id: 'code-hint' }, 'Escribe los 6 dígitos o los últimos números y elige de la lista.')),

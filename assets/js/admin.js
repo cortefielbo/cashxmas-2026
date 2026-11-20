@@ -1,9 +1,9 @@
 // Panel de Marketing: indicadores, filtros, gráficos, tabla, acciones auditadas y Excel.
-import { h, mount, bs, num, pct, fmtDateTime, fmtDate, localDay, icon, alertBox, busy, facts, badge, toast, normCode } from './ui.js';
+import { h, mount, bs, num, pct, fmtDateTime, fmtDate, localDay, icon, alertBox, busy, facts, badge, toast, den, voucherCard } from './ui.js';
 import { rpc, NetworkError, SessionError } from './api.js';
 import { handleFatal } from './app.js';
 
-const C_EMIT = '#0086A8', C_REDEEM = '#C21E3A'; // validados (CVD) con el validador de paleta
+const C_EMIT = '#2A8A5C', C_REDEEM = '#A8121E'; // colores del KV, validados para daltonismo con el validador de paleta
 const PAGE = 50;
 const STATUSES = ['DISPONIBLE', 'EMITIDO', 'CANJEADO', 'ANULADO', 'BLOQUEADO', 'VENCIDO'];
 const ACTIONS = {
@@ -212,7 +212,7 @@ export async function adminPage(state) {
       h('div', { style: 'overflow:auto', tabindex: '0', role: 'region', 'aria-label': 'Tabla desplazable' }, h('table', { class: 't' },
         h('thead', null, h('tr', null, h('th', null, 'Valor'), h('th', { class: 'n' }, 'Códigos'), h('th', { class: 'n' }, 'Disponibles'), h('th', { class: 'n' }, 'Emitidos'), h('th', { class: 'n' }, 'Canjeados'), h('th', { class: 'n' }, 'Valor emitido'), h('th', { class: 'n' }, 'Valor canjeado'))),
         h('tbody', null, rows.map(({ d, k }) => h('tr', null,
-          h('td', null, h('b', null, bs(d.amount))), h('td', { class: 'n' }, num(k.total)), h('td', { class: 'n' }, num(k.disp)),
+          h('td', null, den(d.amount)), h('td', { class: 'n' }, num(k.total)), h('td', { class: 'n' }, num(k.disp)),
           h('td', { class: 'n' }, barCell(k.emit, maxE, '')), h('td', { class: 'n' }, barCell(k.canj, maxE, 'r')),
           h('td', { class: 'n' }, bs(k.vEmit)), h('td', { class: 'n' }, bs(k.vCanj))))))));
   }
@@ -265,7 +265,7 @@ export async function adminPage(state) {
       h('div', { class: 'table-wrap', tabindex: '0', role: 'region', 'aria-label': 'Tabla de vales' }, h('table', { class: 't' },
         h('thead', null, h('tr', null, ['Código', 'Valor', 'Estado', 'Cliente', 'Factura emisión', 'Tienda emisión', 'Fecha emisión', 'Tienda canje', 'Factura canje', 'Fecha canje', 'Responsable'].map(t => h('th', null, t)))),
         h('tbody', null, slice.length ? slice.map(r => h('tr', { class: 'click', tabindex: '0', onclick: () => openDrawer(r.code), onkeydown: (e) => { if (e.key === 'Enter') openDrawer(r.code); } },
-          h('td', { class: 'code-cell' }, r.code), h('td', null, bs(r.den)), h('td', null, badge(r.eff)),
+          h('td', { class: 'code-cell' }, r.code), h('td', null, den(r.den)), h('td', null, badge(r.eff)),
           h('td', { class: 'wrap' }, r.em ? `${r.em.first_name} ${r.em.last_name}` : ''), h('td', null, r.em?.invoice || ''), h('td', null, st(r.em?.store_id)),
           h('td', null, r.em ? fmtDateTime(r.em.created_at) : ''), h('td', null, st(r.rd?.store_id)), h('td', null, r.rd?.invoice || ''),
           h('td', null, r.rd ? fmtDateTime(r.rd.created_at) : ''), h('td', null, resp(r))))
@@ -292,6 +292,7 @@ export async function adminPage(state) {
     const acts = ACTIONS_BY_STATUS[r.eff] || [];
     const drawer = h('aside', { class: 'drawer', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Vale ${code}` },
       h('div', { class: 'hdr' }, h('h2', null, `Vale ${code}`), badge(r.eff), h('button', { class: 'btn small', onclick: close }, 'Cerrar')),
+      voucherCard({ code, denomination: r.den, stamp: r.status === 'CANJEADO' ? { text: 'CANJEADO', sub: fmtDateTime(r.rd?.created_at) } : r.status === 'ANULADO' ? { text: 'ANULADO' } : null }),
       facts([
         ['Valor', bs(r.den)],
         r.em ? ['Cliente', `${r.em.first_name} ${r.em.last_name}`] : null,
@@ -412,7 +413,7 @@ function lineChart(days, series) {
   const ticks = [0, top / 2, top].map(v => Math.round(v));
   const every = Math.max(1, Math.ceil(days.length / 6));
   let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico de ${series.map(s => s.name).join(' y ')} por día">`;
-  for (const t of ticks) svg += `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="#E3EAE6"/><text x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${t.toLocaleString('es-BO')}</text>`;
+  for (const t of ticks) svg += `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="#EFE5D5"/><text x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${t.toLocaleString('es-BO')}</text>`;
   days.forEach((d, i) => { if (i % every === 0 || i === days.length - 1) svg += `<text x="${x(i)}" y="${H - 8}" text-anchor="middle">${d.slice(8, 10)}/${d.slice(5, 7)}</text>`; });
   for (const s of series) {
     const pts = s.values.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
@@ -423,13 +424,13 @@ function lineChart(days, series) {
   const ends = series.map(s => ({ s, v: s.values[s.values.length - 1] })).sort((a, b) => b.v - a.v);
   let lastY = -99;
   ends.forEach(({ s, v }) => { let yy = y(v) + 4; if (yy - lastY < 14) yy = lastY + 14; lastY = yy;
-    svg += `<circle cx="${W - R + 10}" cy="${yy - 4}" r="4" fill="${s.color}"/><text x="${W - R + 18}" y="${yy}" style="fill:#13201B;font-weight:600">${s.name} ${v.toLocaleString('es-BO')}</text>`; });
-  svg += `<line class="xh" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="#56665F" stroke-dasharray="3 3" visibility="hidden"/>`;
+    svg += `<circle cx="${W - R + 10}" cy="${yy - 4}" r="4" fill="${s.color}"/><text x="${W - R + 18}" y="${yy}" style="fill:#2B1416;font-weight:600">${s.name} ${v.toLocaleString('es-BO')}</text>`; });
+  svg += `<line class="xh" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="#6E5A55" stroke-dasharray="3 3" visibility="hidden"/>`;
   series.forEach((s, k) => { svg += `<circle class="hp hp${k}" r="5" fill="${s.color}" stroke="#fff" stroke-width="2" visibility="hidden"/>`; });
   svg += `<rect class="hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg>`;
   const wrap = h('div', { style: 'position:relative' });
   wrap.innerHTML = svg;
-  const tip = h('div', { style: 'position:absolute;pointer-events:none;background:#13201B;color:#fff;font-size:13px;padding:8px 10px;border-radius:8px;display:none;white-space:nowrap;z-index:2' });
+  const tip = h('div', { style: 'position:absolute;pointer-events:none;background:#3D070C;color:#F1E7D6;font-size:13px;padding:8px 10px;border-radius:8px;display:none;white-space:nowrap;z-index:2' });
   wrap.append(tip);
   const el = wrap.querySelector('svg'), xh = el.querySelector('.xh');
   const move = (clientX) => {

@@ -49,22 +49,24 @@ export function redeemPage(state) {
 
   function infoCard(r) {
     const eff = r.effective_status;
-    return h('div', { class: 'group' },
-      h('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:10px' },
-        h('div', { style: 'font:700 34px/1 var(--serif)' }, bs(r.denomination)), badge(eff)),
-      facts([
-        ['Correlativo', r.code],
-        r.emitted_at_local ? ['Emitido', r.emitted_at_local] : null,
-        r.emitted_store ? ['Tienda de emisión', r.emitted_store.name] : null,
-        r.customer ? ['Cliente', `${r.customer} (CI ${r.ci_hint})`] : null,
-        r.redeemed_at_local ? ['Canjeado', `${r.redeemed_at_local}, ${r.redeemed_store.name}`] : null,
-        ['Compra mínima para canjear', bs(r.redeem_min)],
-        ['Vigencia de canje', `${fmtDate(r.redeem_from)} al ${fmtDate(r.redeem_to)}`]
-      ]),
-      r.can_redeem
-        ? h('div', { class: 'code-state ok' }, icon('ok', 20), h('span', null, 'Vale válido para canjear.'))
-        : alertBox('bad', h('strong', null, 'No se puede canjear. '), r.reason)
-    );
+    const stamp = r.status === 'CANJEADO' ? { text: 'CANJEADO', sub: r.redeemed_at_local } : null;
+    return h('div', { class: 'redeem-info' },
+      voucherCard({ code: r.code, denomination: r.denomination, stamp }),
+      h('div', { class: 'group' },
+        h('div', { style: 'display:flex;justify-content:space-between;align-items:center;gap:10px' },
+          h('div', { style: 'font:900 34px/1 var(--serif);color:var(--maroon)' }, bs(r.denomination)), badge(eff)),
+        facts([
+          ['Correlativo', r.code],
+          r.emitted_at_local ? ['Emitido', r.emitted_at_local] : null,
+          r.emitted_store ? ['Tienda de emisión', r.emitted_store.name] : null,
+          r.customer ? ['Cliente', `${r.customer} (CI ${r.ci_hint})`] : null,
+          r.redeemed_at_local ? ['Canjeado', `${r.redeemed_at_local}, ${r.redeemed_store.name}`] : null,
+          ['Compra mínima para canjear', bs(r.redeem_min)],
+          ['Vigencia de canje', `${fmtDate(r.redeem_from)} al ${fmtDate(r.redeem_to)}`]
+        ]),
+        r.can_redeem
+          ? h('div', { class: 'code-state ok' }, icon('ok', 20), h('span', null, 'Vale válido para canjear.'))
+          : alertBox('bad', h('strong', null, 'No se puede canjear. '), r.reason)));
   }
 
   // ---------------------------------------------------------------- compra de canje
@@ -199,7 +201,7 @@ function resultPage(state, r) {
       ]),
       r.is_test ? h('p', { class: 'watermark' }, 'Operación de prueba: se borrará antes de iniciar la campaña.') : null,
       h('div', { class: 'btn-row' },
-        h('button', { class: 'btn primary', type: 'button', onclick: () => redeemPage(state) }, 'Nuevo canje'),
+        h('button', { class: 'btn danger', type: 'button', onclick: () => redeemPage(state) }, 'Nuevo canje'),
         h('a', { class: 'btn', href: '#/' }, 'Volver al inicio'))
     ));
   mount(page);

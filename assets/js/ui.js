@@ -89,37 +89,6 @@ export function icon(name, size = 24) {
   return h('span', { 'aria-hidden': 'true', style: 'display:inline-flex', html: `<svg viewBox="${vb}" width="${size}" height="${size}">${I[name]}</svg>` }).firstChild;
 }
 
-// ------------------------------------------------------------------ guilloché (trama de billete)
-export function guilloche(seed = 1) {
-  const W = 600, H = 320, lines = 14;
-  let paths = '';
-  for (let i = 0; i < lines; i++) {
-    const amp = 18 + (i % 4) * 7, f = 0.018 + (i % 3) * 0.004, ph = i * 0.55 * seed, y0 = 20 + i * (H - 40) / (lines - 1);
-    let d = `M0 ${y0.toFixed(1)}`;
-    for (let x = 0; x <= W; x += 8) {
-      const y = y0 + amp * Math.sin(x * f + ph) * Math.cos(x * 0.006 + i * 0.3);
-      d += ` L${x} ${y.toFixed(1)}`;
-    }
-    paths += `<path d="${d}"/>`;
-  }
-  let rose = '';
-  const cx = W * 0.82, cy = H * 0.62;
-  for (let k = 0; k < 18; k++) {
-    let d = '';
-    for (let t = 0; t <= 360; t += 4) {
-      const a = t * Math.PI / 180;
-      const r = 70 + 16 * Math.sin(6 * a + k * 0.35);
-      const x = cx + r * Math.cos(a + k * 0.17), y = cy + r * 0.62 * Math.sin(a + k * 0.17);
-      d += (t ? ' L' : 'M') + x.toFixed(1) + ' ' + y.toFixed(1);
-    }
-    rose += `<path d="${d}Z"/>`;
-  }
-  return h('span', {
-    'aria-hidden': 'true',
-    html: `<svg class="guilloche" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid slice"><g fill="none" stroke="#8FB3A2" stroke-width=".7">${paths}</g><g fill="none" stroke="#B88E2E" stroke-width=".6" opacity=".7">${rose}</g></svg>`
-  }).firstChild;
-}
-
 // ------------------------------------------------------------------ componentes
 export function backLink(href = '#/', text = 'Inicio') {
   return h('a', { class: 'back', href }, icon('back', 16), text);
@@ -133,21 +102,31 @@ export function facts(rows) {
 
 export function alertBox(kind, ...content) { return h('div', { class: `alert ${kind}`, role: kind === 'bad' ? 'alert' : 'status' }, ...content); }
 
-// Representación del vale (comprobante visual; no es un vale válido para circular)
+// Imagen oficial del vale (cuerpo, sin talón). Se puede reemplazar desde config.js.
+export function voucherSrc(den, mini = false) {
+  const custom = (cfg.VOUCHER_IMAGES || {})[den];
+  if (custom && !mini) return custom;
+  return `assets/img/vale-${den}${mini ? '-mini' : ''}.jpg`;
+}
+
+// Comprobante visual: vale impreso + número en el recuadro de numeración + sello. No es un vale válido para circular.
 export function voucherCard({ code, denomination, stamp = null }) {
-  const img = (cfg.VOUCHER_IMAGES || {})[denomination];
-  const card = h('div', { class: 'note voucher' + (img ? ' has-img' : '') + (stamp ? ' stamped' : ''), role: 'img', 'aria-label': `Vale de Bs ${denomination}, número ${code}` },
-    img ? h('img', { class: 'bg-img', src: img, alt: '' }) : guilloche(denomination / 50),
-    h('div', { class: 'frame' }),
-    h('span', { class: 'serial' }, 'Nº ' + code),
-    h('div', { class: 'note-inner' },
-      h('div', { class: 'v-brand' }, 'Cash', h('span', { class: 'x' }, 'XMAS'), ' 2026'),
-      h('div', { class: 'v-value' }, h('small', null, 'Bs'), String(denomination)),
-      h('div', { class: 'v-foot' }, h('span', null, 'La Navidad que te recompensa'))
-    ),
-    stamp ? h('div', { class: 'stamp press' + (stamp.kind === 'issued' ? ' issued' : '') }, stamp.text, stamp.sub ? h('small', null, stamp.sub) : null) : null
+  return h('div', { class: 'voucher', role: 'img', 'aria-label': `Vale de Bs ${denomination}, número ${code}${stamp ? ', ' + stamp.text : ''}` },
+    h('img', { src: voucherSrc(denomination), alt: '', width: 1200, height: 601, decoding: 'async' }),
+    h('div', { class: 'v-code', 'aria-hidden': 'true' }, code),
+    stamp ? h('div', { class: 'stamp press' + (stamp.kind === 'issued' ? ' issued' : ''), 'aria-hidden': 'true' }, stamp.text, stamp.sub ? h('small', null, stamp.sub) : null) : null
   );
-  return card;
+}
+
+export function den(d) { return h('span', { class: `den d${d}` }, `Bs ${d}`); }
+
+export function logo(color = 'cream', cls = 'logo') {
+  return h('img', { class: cls, src: `assets/img/logo-${color}.svg`, alt: 'CashXMAS', width: 496, height: 172 });
+}
+
+export function brandsBand() {
+  return h('div', { class: 'brands' }, h('img', { src: 'assets/img/marcas.png', width: 1844, height: 44,
+    alt: "Pedro del Hierro, Cortefiel, Women'secret, Springfield, Colloky y Lacoste" }));
 }
 
 let toastTimer;

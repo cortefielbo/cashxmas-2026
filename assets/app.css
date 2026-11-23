@@ -196,6 +196,7 @@ legend { font: 700 21px/1.2 var(--serif); color: var(--maroon); padding: 0; marg
   height: var(--tap); width: 100%; border: 1.5px solid var(--line-strong); border-radius: var(--r-md);
   background: #fff; padding: 0 14px; font-size: 18px;
 }
+.input:disabled { background: var(--paper-2); color: #B9A88F; cursor: not-allowed; }
 .input:focus { border-color: var(--maroon); outline: none; box-shadow: 0 0 0 3px rgba(180, 138, 78, .35); }
 .input[aria-invalid="true"] { border-color: var(--bad); }
 .prefix { position: relative; }
@@ -231,6 +232,9 @@ legend { font: 700 21px/1.2 var(--serif); color: var(--maroon); padding: 0; marg
 .tier.on::after { content: "✓"; position: absolute; top: -9px; right: -9px; width: 24px; height: 24px; border-radius: 50%; background: var(--maroon); color: var(--cream); font: 700 14px/24px var(--sans); }
 .tier.dim img { filter: grayscale(.85) opacity(.55); }
 .tier-msg { font-size: 15px; font-weight: 600; color: var(--maroon); }
+.tiers.pick .tier { cursor: pointer; }
+.tiers.pick .tier:hover { border-color: var(--maroon); }
+.tiers.pick .tier:has(input:focus-visible) { outline: 3px solid var(--gold-ink); outline-offset: 2px; }
 .tier-msg.bad { color: var(--bad); }
 
 /* tienda */

@@ -1,5 +1,5 @@
 // Módulo A · Registro y emisión de vales
-import { h, mount, backLink, bs, num, normCode, parseAmount, uuid, icon, alertBox, busy, facts, voucherCard, storePicker, storePath, cfg, voucherSrc, den } from './ui.js';
+import { h, mount, backLink, bs, num, vlabel, normCode, parseAmount, uuid, icon, alertBox, busy, facts, voucherCard, storePicker, storePath, cfg, voucherSrc, den } from './ui.js';
 import { rpc, NetworkError, SessionError } from './api.js';
 import { handleFatal } from './app.js';
 
@@ -44,12 +44,16 @@ export function emissionPage(state) {
     if (!amt) { tierMsg.textContent = ''; tierMsg.hidden = true; return; }
     tierMsg.hidden = false;
     if (!match) tierMsg.textContent = `Esta compra no recibe vale: el mínimo es ${bs(Math.min(...dens.map(d => Number(d.emit_min))))}.`;
-    else tierMsg.textContent = `Entrega un vale de ${bs(match.amount)}: códigos ${match.code_from} a ${match.code_to}.`;
+    else tierMsg.textContent = `Entrega un vale de ${bs(match.amount)}: números ${match.code_from} a ${match.code_to}.`;
   };
-  fAmount.input.addEventListener('input', () => { renderTiers(); fAmount.err.textContent = ''; recheckCode(); });
+  fAmount.input.addEventListener('input', () => {
+    const before = s.den; renderTiers(); fAmount.err.textContent = '';
+    codeInput.disabled = !s.den;
+    if (s.den !== before) { suggest.replaceChildren(); if (codeInput.value.length === 6) { s.code = codeInput.value; lookup(s.code, true); } else { s.code = null; s.codeOk = false; setCodeState('', ''); } }
+  });
 
   // ---------------------------------------------------------------- código de vale
-  const codeInput = h('input', { class: 'input serial-input', id: 'code', inputmode: 'numeric', autocomplete: 'off', maxlength: 6, placeholder: '000000', 'aria-describedby': 'code-hint code-state' });
+  const codeInput = h('input', { class: 'input serial-input', id: 'code', inputmode: 'numeric', autocomplete: 'off', maxlength: 6, placeholder: '000000', disabled: true, 'aria-describedby': 'code-hint code-state' });
   const suggest = h('ul', { class: 'suggest', role: 'listbox', 'aria-label': 'Códigos disponibles' });
   const codeState = h('div', { id: 'code-state', 'aria-live': 'polite' });
   let suggestTimer, suggestSeq = 0;
@@ -59,26 +63,23 @@ export function emissionPage(state) {
   };
   const evaluateExact = (ex) => {
     s.codeOk = false;
-    if (!ex) { setCodeState('bad', `El código ${s.code} no pertenece al inventario de la campaña.`); return; }
-    if (ex.status !== 'DISPONIBLE') { setCodeState('bad', `El vale ${ex.code} está ${ex.status.toLowerCase()} y no puede emitirse.`); return; }
-    if (s.den && ex.denomination !== s.den) {
-      const d = dens.find(x => x.amount === s.den);
-      setCodeState('bad', `El vale ${ex.code} es de ${bs(ex.denomination)}, pero a esta compra le corresponde uno de ${bs(s.den)} (del ${d.code_from} al ${d.code_to}).`);
-      return;
-    }
+    const d = dens.find(x => x.amount === s.den);
+    if (!ex) { setCodeState('bad', `El vale ${vlabel(s.den, s.code.padStart(6, '0'))} no existe. Los vales de ${bs(s.den)} van del ${d.code_from} al ${d.code_to}.`); return; }
+    if (ex.status !== 'DISPONIBLE') { setCodeState('bad', `El vale ${vlabel(ex.denomination, ex.number)} está ${ex.status.toLowerCase()} y no puede emitirse.`); return; }
     s.codeOk = true;
-    setCodeState('ok', s.den ? `Vale ${ex.code} de ${bs(ex.denomination)} disponible.` : `Vale ${ex.code} de ${bs(ex.denomination)} disponible. Falta el monto de la compra.`);
+    setCodeState('ok', `Vale ${vlabel(ex.denomination, ex.number)} disponible.`);
   };
   const lookup = async (q, exactOnly) => {
     const seq = ++suggestSeq;
+    if (!s.den) return;
     try {
       const r = await rpc('cx_suggest', { p_query: q, p_denomination: s.den });
       if (seq !== suggestSeq) return;
       if (exactOnly) { suggest.replaceChildren(); evaluateExact(r.exact); return; }
       const opts = r.options || [];
-      suggest.replaceChildren(...opts.slice(0, 6).map(o => h('li', null, h('button', { type: 'button', role: 'option', onclick: () => pick(o.code) },
-        h('span', { class: 'c' }, o.code), den(o.denomination), h('span', { class: 'badge EMITIDO' }, 'Disponible')))));
-      if (!opts.length) setCodeState('info', s.den ? `No hay vales de ${bs(s.den)} disponibles que contengan "${q}".` : `No hay vales disponibles que contengan "${q}".`);
+      suggest.replaceChildren(...opts.slice(0, 6).map(o => h('li', null, h('button', { type: 'button', role: 'option', onclick: () => pick(o.number) },
+        h('span', { class: 'c' }, o.number), den(o.denomination), h('span', { class: 'badge EMITIDO' }, 'Disponible')))));
+      if (!opts.length) setCodeState('info', `No hay vales de ${bs(s.den)} disponibles con ${q}.`);
       else setCodeState('', '');
     } catch (e) {
       if (seq !== suggestSeq) return;
@@ -110,7 +111,7 @@ export function emissionPage(state) {
     const amt = parseAmount(fAmount.input.value);
     set(fAmount, !amt ? 'Ingresa el monto de la compra.' : !s.den ? 'La compra no alcanza el mínimo para recibir un vale.' : '');
     set(fInvoice, !clean(fInvoice.input.value).replace(/[^0-9a-z]/gi, '').replace(/^0+/, '') ? 'Ingresa el número de factura.' : '');
-    if (!s.code) { setCodeState('bad', 'Escribe el código de 6 dígitos o elígelo de la lista.'); errs.push(codeInput); }
+    if (!s.code) { if (s.den) setCodeState('bad', 'Escribe el número de 6 dígitos o elígelo de la lista.'); errs.push(s.den ? codeInput : fAmount.input); }
     else if (!s.codeOk) errs.push(codeInput);
     const badName = /[0-9<>@#$%^*=_{}|\\/:;"]/;
     const fn = clean(fFirst.input.value), ln = clean(fLast.input.value);
@@ -140,7 +141,7 @@ export function emissionPage(state) {
     s.reqId = s.reqId || uuid();
     const payload = {
       request_id: s.reqId, store_id: s.store.id, purchase_amount: parseAmount(fAmount.input.value),
-      invoice_number: clean(fInvoice.input.value), voucher_code: s.code,
+      invoice_number: clean(fInvoice.input.value), voucher_number: s.code,
       first_name: clean(fFirst.input.value), last_name: clean(fLast.input.value), ci: fCi.input.value,
       phone: fPhone.input.value, email: clean(fEmail.input.value), seller_name: clean(fSeller.input.value)
     };
@@ -170,8 +171,8 @@ export function emissionPage(state) {
     h('fieldset', null, h('legend', null, 'Tienda de emisión'), picker.node, storeErr),
     h('fieldset', null, h('legend', null, 'Compra'), h('div', { class: 'group' }, fAmount.node, h('div', { class: 'field' }, h('span', { class: 'label' }, 'Vale que corresponde'), tiers, tierMsg, h('div', { class: 'hint' }, 'Se marca solo según el monto de la compra.')), fInvoice.node)),
     h('fieldset', null, h('legend', null, 'Vale físico'), h('div', { class: 'group' },
-      h('div', { class: 'field' }, h('label', { for: 'code' }, 'Código impreso en el vale'), codeInput,
-        h('div', { class: 'hint', id: 'code-hint' }, 'Escribe los 6 dígitos o los últimos números y elige de la lista.')),
+      h('div', { class: 'field' }, h('label', { for: 'code' }, 'Número impreso en el vale'), codeInput,
+        h('div', { class: 'hint', id: 'code-hint' }, 'Primero escribe el monto de la compra. Luego los 6 dígitos del vale, o los últimos números, y elige de la lista.')),
       suggest, codeState)),
     h('fieldset', null, h('legend', null, 'Cliente'), h('div', { class: 'group' },
       h('div', { class: 'row2' }, fFirst.node, fLast.node), fCi.node, fPhone.node, fEmail.node,
@@ -189,9 +190,9 @@ function resultPage(state, r) {
     h('div', { class: 'result' },
       h('h1', { tabindex: '-1' }, icon('ok', 30), 'VALE EMITIDO CORRECTAMENTE'),
       r.replay ? alertBox('ok', 'Esta operación ya estaba registrada. No se creó un vale duplicado.') : null,
-      voucherCard({ code: r.code, denomination: r.denomination, stamp: { kind: 'issued', text: 'EMITIDO', sub: r.created_at_local } }),
+      voucherCard({ number: r.number, denomination: r.denomination, stamp: { kind: 'issued', text: 'EMITIDO', sub: r.created_at_local } }),
       facts([
-        ['Correlativo', r.code],
+        ['Número del vale', r.number],
         ['Valor del vale', bs(r.denomination)],
         ['Cliente', r.customer],
         ['Sucursal', `${r.store.name}${storePath(r.store) ? ', ' + storePath(r.store) : ''}`],

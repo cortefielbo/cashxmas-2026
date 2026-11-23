@@ -104,7 +104,7 @@ function homePage() {
         h('div', { class: 'vales' }, denominations.map(d => h('div', { class: 'vale-card' },
           h('img', { src: voucherSrc(d.amount, true), alt: `Vale de Bs ${d.amount}`, width: 480, height: 240, loading: 'lazy' }),
           h('dl', null,
-            h('dt', null, 'Códigos'), h('dd', null, `${d.code_from} a ${d.code_to}`),
+            h('dt', null, 'Números'), h('dd', null, `${d.code_from} a ${d.code_to}`),
             h('dt', null, 'Compra para recibirlo'), h('dd', null, range(d)),
             h('dt', null, 'Compra para canjearlo'), h('dd', null, `desde ${bs(d.redeem_min)}`))))),
         h('p', { class: 'rules-note' }, 'Un vale por compra. No se acumula y no se combina con otros descuentos. Una compra en la que se canjea un vale no genera un vale nuevo.')),

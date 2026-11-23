@@ -110,13 +110,17 @@ export function voucherSrc(den, mini = false) {
 }
 
 // Comprobante visual: vale impreso + número en el recuadro de numeración + sello. No es un vale válido para circular.
-export function voucherCard({ code, denomination, stamp = null }) {
-  return h('div', { class: 'voucher', role: 'img', 'aria-label': `Vale de Bs ${denomination}, número ${code}${stamp ? ', ' + stamp.text : ''}` },
+export function voucherCard({ number, code, denomination, stamp = null }) {
+  const num = number || String(code || '').split('-').pop();
+  return h('div', { class: 'voucher', role: 'img', 'aria-label': `Vale de Bs ${denomination}, número ${num}${stamp ? ', ' + stamp.text : ''}` },
     h('img', { src: voucherSrc(denomination), alt: '', width: 1200, height: 601, decoding: 'async' }),
-    h('div', { class: 'v-code', 'aria-hidden': 'true' }, code),
+    h('div', { class: 'v-code', 'aria-hidden': 'true' }, num),
     stamp ? h('div', { class: 'stamp press' + (stamp.kind === 'issued' ? ' issued' : ''), 'aria-hidden': 'true' }, stamp.text, stamp.sub ? h('small', null, stamp.sub) : null) : null
   );
 }
+
+// "Bs 100 Nº 000154"
+export function vlabel(denomination, number) { return `Bs ${denomination} Nº ${number}`; }
 
 export function den(d) { return h('span', { class: `den d${d}` }, `Bs ${d}`); }
 

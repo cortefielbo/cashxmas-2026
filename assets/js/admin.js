@@ -1,5 +1,5 @@
 // Panel de Marketing: indicadores, filtros, gráficos, tabla, acciones auditadas y Excel.
-import { h, mount, bs, num, pct, fmtDateTime, fmtDate, localDay, icon, alertBox, busy, facts, badge, toast, den, voucherCard } from './ui.js';
+import { h, mount, bs, num, pct, fmtDateTime, fmtDate, localDay, icon, alertBox, busy, facts, badge, toast, den, voucherCard, vlabel } from './ui.js';
 import { rpc, NetworkError, SessionError } from './api.js';
 import { handleFatal } from './app.js';
 
@@ -51,7 +51,7 @@ export async function adminPage(state) {
     for (const e of S.data.emissions) if (!e.voided_at) em[e.code] = e;
     for (const r of S.data.redemptions) if (!r.voided_at) rd[r.code] = r;
     S.rows = S.data.vouchers.map(v => ({
-      code: v.code, den: v.denomination, status: v.status,
+      code: v.code, number: v.number, den: v.denomination, status: v.status,
       eff: v.status === 'EMITIDO' && !test && today > me.campaign.redeem_to ? 'VENCIDO' : v.status,
       em: em[v.code] || null, rd: rd[v.code] || null, updated_at: v.updated_at
     }));
@@ -82,7 +82,7 @@ export async function adminPage(state) {
       if (f.rdFrom || f.rdTo) { if (!r.rd) return false; const d = localDay(r.rd.created_at); if (f.rdFrom && d < f.rdFrom) return false; if (f.rdTo && d > f.rdTo) return false; }
       if (q) {
         const hay = [r.code, r.em && `${r.em.first_name} ${r.em.last_name}`, r.em?.ci, r.em?.phone, r.em?.email, r.em?.invoice, r.rd?.invoice, r.em?.seller, r.rd?.seller, r.em?.user, r.rd?.user].filter(Boolean).join(' ').toLowerCase();
-        if (!(hay.includes(q) || (qDigits && qDigits.length >= 3 && r.code.includes(qDigits)))) return false;
+        if (!(hay.includes(q) || (qDigits && qDigits.length >= 3 && r.number.includes(qDigits)))) return false;
       }
       return true;
     });
@@ -263,9 +263,9 @@ export async function adminPage(state) {
           h('option', { value: 'code', selected: S.sort === 'code' ? 'selected' : null }, 'Por código'),
           h('option', { value: 'recent', selected: S.sort === 'recent' ? 'selected' : null }, 'Actividad más reciente'))),
       h('div', { class: 'table-wrap', tabindex: '0', role: 'region', 'aria-label': 'Tabla de vales' }, h('table', { class: 't' },
-        h('thead', null, h('tr', null, ['Código', 'Valor', 'Estado', 'Cliente', 'Factura emisión', 'Tienda emisión', 'Fecha emisión', 'Tienda canje', 'Factura canje', 'Fecha canje', 'Responsable'].map(t => h('th', null, t)))),
+        h('thead', null, h('tr', null, ['Valor', 'Número', 'Estado', 'Cliente', 'Factura emisión', 'Tienda emisión', 'Fecha emisión', 'Tienda canje', 'Factura canje', 'Fecha canje', 'Responsable'].map(t => h('th', null, t)))),
         h('tbody', null, slice.length ? slice.map(r => h('tr', { class: 'click', tabindex: '0', onclick: () => openDrawer(r.code), onkeydown: (e) => { if (e.key === 'Enter') openDrawer(r.code); } },
-          h('td', { class: 'code-cell' }, r.code), h('td', null, den(r.den)), h('td', null, badge(r.eff)),
+          h('td', null, den(r.den)), h('td', { class: 'code-cell' }, r.number), h('td', null, badge(r.eff)),
           h('td', { class: 'wrap' }, r.em ? `${r.em.first_name} ${r.em.last_name}` : ''), h('td', null, r.em?.invoice || ''), h('td', null, st(r.em?.store_id)),
           h('td', null, r.em ? fmtDateTime(r.em.created_at) : ''), h('td', null, st(r.rd?.store_id)), h('td', null, r.rd?.invoice || ''),
           h('td', null, r.rd ? fmtDateTime(r.rd.created_at) : ''), h('td', null, resp(r))))
@@ -291,8 +291,8 @@ export async function adminPage(state) {
     const msg = h('div', { 'aria-live': 'polite' });
     const acts = ACTIONS_BY_STATUS[r.eff] || [];
     const drawer = h('aside', { class: 'drawer', role: 'dialog', 'aria-modal': 'true', 'aria-label': `Vale ${code}` },
-      h('div', { class: 'hdr' }, h('h2', null, `Vale ${code}`), badge(r.eff), h('button', { class: 'btn small', onclick: close }, 'Cerrar')),
-      voucherCard({ code, denomination: r.den, stamp: r.status === 'CANJEADO' ? { text: 'CANJEADO', sub: fmtDateTime(r.rd?.created_at) } : r.status === 'ANULADO' ? { text: 'ANULADO' } : null }),
+      h('div', { class: 'hdr' }, h('h2', null, `Vale ${vlabel(r.den, r.number)}`), badge(r.eff), h('button', { class: 'btn small', onclick: close }, 'Cerrar')),
+      voucherCard({ number: r.number, denomination: r.den, stamp: r.status === 'CANJEADO' ? { text: 'CANJEADO', sub: fmtDateTime(r.rd?.created_at) } : r.status === 'ANULADO' ? { text: 'ANULADO' } : null }),
       facts([
         ['Valor', bs(r.den)],
         r.em ? ['Cliente', `${r.em.first_name} ${r.em.last_name}`] : null,
@@ -318,12 +318,12 @@ export async function adminPage(state) {
     async function act(action, btn) {
       msg.replaceChildren();
       if (reason.value.trim().length < 5) { msg.replaceChildren(alertBox('bad', 'Escribe el motivo (mínimo 5 caracteres).')); reason.focus(); return; }
-      if (!confirm(`${ACTIONS[action].label} el vale ${code}?`)) return;
+      if (!confirm(`${ACTIONS[action].label}: vale ${vlabel(r.den, r.number)}?`)) return;
       busy(btn, true, 'Aplicando…');
       try {
         const res = await rpc('cx_admin_action', { p_code: code, p_action: action, p_reason: reason.value.trim() });
         if (!res.ok) { busy(btn, false); msg.replaceChildren(alertBox('bad', res.message)); return; }
-        close(); toast(`Vale ${code}: ${res.from} a ${res.to}.`); await load();
+        close(); toast(`Vale ${vlabel(r.den, r.number)}: ${res.from} a ${res.to}.`); await load();
       } catch (e) {
         busy(btn, false);
         if (e instanceof SessionError) return handleFatal(e);
@@ -350,18 +350,18 @@ export async function adminPage(state) {
       ws['!autofilter'] = { ref: window.XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: data.length, c: header.length - 1 } }) };
       return ws;
     };
-    const inv = sheet(['Correlativo', 'Valor (Bs)', 'Estado', 'Tienda de emisión', 'Fecha de emisión', 'Tienda de canje', 'Fecha de canje', 'Última actualización'],
-      rows.map(r => [T(r.code), N(r.den), T(r.eff), T(st(r.em?.store_id).name), D(r.em?.created_at), T(st(r.rd?.store_id).name), D(r.rd?.created_at), D(r.updated_at)]),
-      [12, 10, 12, 32, 17, 32, 17, 17]);
+    const inv = sheet(['ID vale', 'Valor (Bs)', 'Número', 'Estado', 'Tienda de emisión', 'Fecha de emisión', 'Tienda de canje', 'Fecha de canje', 'Última actualización'],
+      rows.map(r => [T(r.code), N(r.den), T(r.number), T(r.eff), T(st(r.em?.store_id).name), D(r.em?.created_at), T(st(r.rd?.store_id).name), D(r.rd?.created_at), D(r.updated_at)]),
+      [12, 10, 10, 12, 32, 17, 32, 17, 17]);
     const ems = S.data.emissions.filter(e => codes.has(e.code));
-    const emSheet = sheet(['Operación', 'Correlativo', 'Valor (Bs)', 'Tienda', 'Ciudad', 'Sucursal', 'Factura', 'Monto compra (Bs)', 'Nombre', 'Apellidos', 'Carnet', 'Celular', 'Correo', 'Atendido por', 'Usuario', 'Fecha y hora', 'Anulada', 'Motivo de anulación', 'Prueba'],
-      ems.map(e => [T(e.op), T(e.code), N(e.denomination), T(st(e.store_id).name), T(st(e.store_id).city), T(st(e.store_id).location), T(e.invoice), N(e.amount, '#,##0.00'), T(e.first_name), T(e.last_name), T(e.ci), T(e.phone), T(e.email), T(e.seller), T(e.user), D(e.created_at), T(e.voided_at ? `Sí (${e.void_mode})` : 'No'), T(e.void_reason), T(e.is_test ? 'Sí' : 'No')]),
-      [11, 12, 10, 32, 11, 12, 12, 14, 16, 18, 13, 11, 24, 16, 18, 17, 14, 28, 7]);
+    const emSheet = sheet(['Operación', 'ID vale', 'Valor (Bs)', 'Número', 'Tienda', 'Ciudad', 'Sucursal', 'Factura', 'Monto compra (Bs)', 'Nombre', 'Apellidos', 'Carnet', 'Celular', 'Correo', 'Atendido por', 'Usuario', 'Fecha y hora', 'Anulada', 'Motivo de anulación', 'Prueba'],
+      ems.map(e => [T(e.op), T(e.code), N(e.denomination), T(e.number), T(st(e.store_id).name), T(st(e.store_id).city), T(st(e.store_id).location), T(e.invoice), N(e.amount, '#,##0.00'), T(e.first_name), T(e.last_name), T(e.ci), T(e.phone), T(e.email), T(e.seller), T(e.user), D(e.created_at), T(e.voided_at ? `Sí (${e.void_mode})` : 'No'), T(e.void_reason), T(e.is_test ? 'Sí' : 'No')]),
+      [11, 12, 10, 10, 32, 11, 12, 12, 14, 16, 18, 13, 11, 24, 16, 18, 17, 14, 28, 7]);
     const emStore = Object.fromEntries(S.data.emissions.filter(e => !e.voided_at).map(e => [e.code, e]));
     const rds = S.data.redemptions.filter(x => codes.has(x.code));
-    const rdSheet = sheet(['Operación', 'Correlativo', 'Valor (Bs)', 'Tienda', 'Ciudad', 'Sucursal', 'Factura', 'Monto compra (Bs)', 'Sin otros descuentos', 'Atendido por', 'Usuario', 'Fecha y hora', 'Tienda de emisión', 'Anulado', 'Motivo de anulación', 'Prueba'],
-      rds.map(x => [T(x.op), T(x.code), N(x.denomination), T(st(x.store_id).name), T(st(x.store_id).city), T(st(x.store_id).location), T(x.invoice), N(x.amount, '#,##0.00'), T(x.no_combine ? 'Confirmado' : 'No'), T(x.seller), T(x.user), D(x.created_at), T(st(emStore[x.code]?.store_id).name), T(x.voided_at ? 'Sí' : 'No'), T(x.void_reason), T(x.is_test ? 'Sí' : 'No')]),
-      [11, 12, 10, 32, 11, 12, 12, 14, 16, 16, 18, 17, 32, 9, 28, 7]);
+    const rdSheet = sheet(['Operación', 'ID vale', 'Valor (Bs)', 'Número', 'Tienda', 'Ciudad', 'Sucursal', 'Factura', 'Monto compra (Bs)', 'Sin otros descuentos', 'Atendido por', 'Usuario', 'Fecha y hora', 'Tienda de emisión', 'Anulado', 'Motivo de anulación', 'Prueba'],
+      rds.map(x => [T(x.op), T(x.code), N(x.denomination), T(x.number), T(st(x.store_id).name), T(st(x.store_id).city), T(st(x.store_id).location), T(x.invoice), N(x.amount, '#,##0.00'), T(x.no_combine ? 'Confirmado' : 'No'), T(x.seller), T(x.user), D(x.created_at), T(st(emStore[x.code]?.store_id).name), T(x.voided_at ? 'Sí' : 'No'), T(x.void_reason), T(x.is_test ? 'Sí' : 'No')]),
+      [11, 12, 10, 10, 32, 11, 12, 12, 14, 16, 16, 18, 17, 32, 9, 28, 7]);
     const k = kpis(rows);
     const sum = [
       [T('CashXMAS 2026'), T(useFilters && hasFilters() ? 'Exportación con filtros' : 'Exportación completa')], [T('Generado'), D(new Date().toISOString())], [T('Datos al'), D(S.data.generated_at)], [],
@@ -376,7 +376,7 @@ export async function adminPage(state) {
     ];
     const sumWs = window.XLSX.utils.aoa_to_sheet(sum); sumWs['!cols'] = [{ wch: 34 }, { wch: 24 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 16 }, { wch: 16 }];
     const aud = S.data.audit.filter(a => !useFilters || !hasFilters() || !a.code || codes.has(a.code));
-    const audWs = sheet(['Fecha y hora', 'Usuario', 'Acción', 'Correlativo', 'Tienda', 'Detalle'],
+    const audWs = sheet(['Fecha y hora', 'Usuario', 'Acción', 'ID vale', 'Tienda', 'Detalle'],
       aud.map(a => [D(a.at), T(a.actor), T(a.action), T(a.code), T(st(a.store_id).name), T(JSON.stringify(a.details))]), [17, 18, 22, 12, 30, 80]);
     const wb = window.XLSX.utils.book_new();
     window.XLSX.utils.book_append_sheet(wb, inv, 'Inventario');
